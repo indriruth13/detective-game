@@ -92,12 +92,15 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language }: 
   const [isRecording, setIsRecording] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [messages, activeSuspectId, loading]);
 
   const stopAudio = () => {
@@ -304,7 +307,7 @@ Please verify that your server's \`.env.local\` file has a valid \`OPENAI_API_KE
       </div>
 
       {/* Messages */}
-      <div className="flex-1 space-y-4 overflow-y-auto p-4 custom-scrollbar bg-zinc-950/20">
+      <div ref={chatContainerRef} className="flex-1 space-y-4 overflow-y-auto p-4 custom-scrollbar bg-zinc-950/20">
         {activeMessages.map((message, index) => (
           <ChatMessage
             key={index}
@@ -342,13 +345,15 @@ Please verify that your server's \`.env.local\` file has a valid \`OPENAI_API_KE
         />
 
         <button
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
+          onMouseDown={(e) => { e.preventDefault(); startRecording(); }}
+          onMouseUp={(e) => { e.preventDefault(); stopRecording(); }}
           onMouseLeave={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
+          onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+          onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
+          onTouchCancel={(e) => { e.preventDefault(); stopRecording(); }}
           disabled={loading}
-          className={`flex items-center justify-center h-10 w-10 sm:w-auto sm:px-4 gap-1.5 rounded-md font-semibold text-zinc-950 transition-colors disabled:opacity-40 disabled:cursor-not-allowed select-none ${
+          style={{ WebkitTouchCallout: 'none' }}
+          className={`flex items-center justify-center h-10 w-10 sm:w-auto sm:px-4 gap-1.5 rounded-md font-semibold text-zinc-950 transition-colors disabled:opacity-40 disabled:cursor-not-allowed select-none touch-none ${
             isRecording 
               ? "bg-red-600 animate-pulse hover:bg-red-500" 
               : "bg-zinc-200 hover:bg-white"
