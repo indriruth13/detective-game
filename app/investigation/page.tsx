@@ -527,6 +527,10 @@ export default function InvestigationPage() {
                   </div>
                   <div className="bg-zinc-900 w-full px-3 py-2 text-[10px] font-mono text-zinc-300 uppercase flex items-center justify-between border-t border-zinc-800 z-10">
                     <span>{t.exhibitA}</span>
+                    <span className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg>
+                      <span className="hidden sm:inline">Expand</span>
+                    </span>
                   </div>
                 </div>
                 <div className="flex flex-col rounded-md border border-zinc-800 overflow-hidden shadow-lg bg-zinc-950 group cursor-pointer" onClick={() => setFullscreenImage("/images/crime_scene_cart.jpg")}>
@@ -535,6 +539,10 @@ export default function InvestigationPage() {
                   </div>
                   <div className="bg-zinc-900 w-full px-3 py-2 text-[10px] font-mono text-zinc-300 uppercase flex items-center justify-between border-t border-zinc-800 z-10">
                     <span>{t.exhibitB}</span>
+                    <span className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg>
+                      <span className="hidden sm:inline">Expand</span>
+                    </span>
                   </div>
                 </div>
               </div>
