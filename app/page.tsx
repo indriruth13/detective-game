@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 export default function Home() {
   const [lang, setLang] = useState<"en" | "id">("en");
   const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const saved = localStorage.getItem('detective_lang');
@@ -89,15 +91,22 @@ export default function Home() {
             : "Tersangka sedang menunggu di ruang interogasi. Tanyai dengan hati-hati, dengarkan baik-baik, dan buat mereka membongkar kebenaran."}
         </p>
 
-        <Link
-          href="/investigation"
+        <button
+          onClick={() => {
+            const audio = document.getElementById("game-audio") as HTMLAudioElement;
+            if (audio) {
+              audio.play().catch(() => {});
+              audio.pause();
+            }
+            router.push("/investigation");
+          }}
           className="group relative inline-flex items-center justify-center px-10 py-4 mt-6 overflow-hidden font-bold tracking-widest text-zinc-950 uppercase rounded-md bg-amber-600 hover:bg-amber-500 active:bg-amber-700 transition-all shadow-[0_0_20px_rgba(217,119,6,0.4)] hover:shadow-[0_0_30px_rgba(217,119,6,0.6)] animate-pulse hover:animate-none"
         >
           <span>{lang === "en" ? "Begin Interrogation" : "Mulai Interogasi"}</span>
           <svg className="w-5 h-5 ml-2 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
-        </Link>
+        </button>
       </div>
     </main>
   );

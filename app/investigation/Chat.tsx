@@ -76,15 +76,9 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language }: 
   };
 
   const [messages, setMessages] = useState<Record<SuspectId, Message[]>>({
-    ningsih: [
-      { role: "assistant", content: SUSPECTS[0].initialMessage }
-    ],
-    jono: [
-      { role: "assistant", content: SUSPECTS[1].initialMessage }
-    ],
-    oleh: [
-      { role: "assistant", content: SUSPECTS[2].initialMessage }
-    ]
+    ningsih: [],
+    jono: [],
+    oleh: []
   });
 
   const [input, setInput] = useState("");
@@ -96,6 +90,12 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language }: 
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
+  const activeSuspectRef = useRef(activeSuspectId);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    activeSuspectRef.current = activeSuspectId;
+  }, [activeSuspectId]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -104,10 +104,10 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language }: 
   }, [messages, activeSuspectId, loading]);
 
   const stopAudio = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current.src = "";
-      currentAudioRef.current = null;
+    const gameAudio = document.getElementById("game-audio") as HTMLAudioElement;
+    if (gameAudio) {
+      gameAudio.pause();
+      gameAudio.src = "";
     }
   };
 
@@ -115,23 +115,71 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language }: 
     stopAudio();
     const voice = suspectId === "ningsih" ? "nova" : suspectId === "jono" ? "echo" : "onyx";
     
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    
     try {
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, language, voice })
+        body: JSON.stringify({ text, language, voice }),
+        signal: abortControllerRef.current.signal
       });
       if (res.ok) {
         const blob = await res.blob();
+        
+        // If the user already switched to another suspect, ignore this audio
+        if (suspectId !== activeSuspectRef.current) return;
+
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        currentAudioRef.current = audio;
-        audio.play().catch(e => console.error("Auto-play blocked:", e));
+        const gameAudio = document.getElementById("game-audio") as HTMLAudioElement;
+        
+        if (gameAudio) {
+          gameAudio.src = url;
+          gameAudio.play().catch(e => console.error("Auto-play blocked:", e));
+        } else {
+          // Fallback for desktop/if element missing
+          const audio = new Audio(url);
+          currentAudioRef.current = audio;
+          audio.play().catch(e => console.error("Auto-play blocked:", e));
+        }
       }
-    } catch (err) {
-      console.error("TTS Error:", err);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log("TTS fetch aborted");
+      } else {
+        console.error("TTS Error:", err);
+      }
     }
   };
+
+  useEffect(() => {
+    // Handle initial message typing effect and voice
+    if (messages[activeSuspectId].length === 0) {
+      setLoading(true);
+      const currentId = activeSuspectId;
+      const suspect = SUSPECTS.find(s => s.id === currentId)!;
+      const initialText = suspect.initialMessage;
+      
+      // Small timeout to simulate typing/loading before saying first line
+      const timer = setTimeout(() => {
+        setMessages(prev => {
+          if (prev[currentId].length > 0) return prev;
+          return {
+            ...prev,
+            [currentId]: [{ role: "assistant", content: initialText }]
+          };
+        });
+        setLoading(false);
+        playTTS(initialText, currentId);
+      }, 1200);
+
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSuspectId]);
 
   const startRecording = async () => {
     try {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Chat from "@/app/investigation/Chat";
 import Link from "next/link";
 import type { SuspectId, Language } from "./types";
@@ -215,6 +215,7 @@ export default function InvestigationPage() {
   const [language, setLanguage] = useState<Language>("en");
   const [isLangLoaded, setIsLangLoaded] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('detective_lang');
@@ -260,6 +261,12 @@ export default function InvestigationPage() {
     if (gameState === "intro" && !audioUrl) {
       const fetchAudio = async () => {
         setIsLoadingAudio(true);
+        
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+
         try {
           const res = await fetch("/api/tts", {
             method: "POST",
@@ -267,7 +274,8 @@ export default function InvestigationPage() {
             body: JSON.stringify({
               text: t.introDesc1 + " " + t.introDesc2,
               language
-            })
+            }),
+            signal: abortControllerRef.current.signal
           });
           
           if (!res.ok) throw new Error("TTS failed");
@@ -277,12 +285,17 @@ export default function InvestigationPage() {
           
           const url = URL.createObjectURL(blob);
           setAudioUrl(url);
-        } catch (error) {
+        } catch (error: any) {
           if (isCancelled) return;
+          if (error.name === 'AbortError') {
+            console.log("Intro TTS fetch aborted");
+            return;
+          }
           console.error(error);
           // Fallback if audio fails
+          // Fallback to start text
           setIsAudioPlaying(true); 
-          setTimeout(() => setIsIntroFinished(true), 5000);
+          setTimeout(() => setIsIntroFinished(true), 2000);
         } finally {
           if (!isCancelled) setIsLoadingAudio(false);
         }
@@ -295,6 +308,23 @@ export default function InvestigationPage() {
       isCancelled = true;
     };
   }, [gameState, language, t.introDesc1, t.introDesc2, audioUrl]);
+
+  // Play audio when ready
+  useEffect(() => {
+    if (gameState === "intro" && audioUrl && !isAudioPlaying && !isIntroFinished) {
+      const audio = document.getElementById("game-audio") as HTMLAudioElement;
+      if (audio) {
+        audio.src = audioUrl;
+        audio.onplay = () => setIsAudioPlaying(true);
+        audio.onended = () => setIsIntroFinished(true);
+        audio.play().catch((err) => {
+          console.error("Intro audio blocked:", err);
+          setIsAudioPlaying(true); // Fallback to start text
+          setTimeout(() => setIsIntroFinished(true), 2000);
+        });
+      }
+    }
+  }, [gameState, audioUrl, isAudioPlaying]);
 
   // Start Typewriter when audio starts playing
   useEffect(() => {
@@ -469,19 +499,14 @@ export default function InvestigationPage() {
               <p>{displayedIntro2}</p>
             </div>
 
-            {audioUrl && (
-              <audio 
-                src={audioUrl} 
-                autoPlay 
-                onPlay={() => setIsAudioPlaying(true)}
-                onEnded={() => setIsIntroFinished(true)}
-                className="hidden" 
-              />
-            )}
-
             <div className="flex flex-col items-center gap-3 w-full mt-4">
               <button
                 onClick={() => {
+                  const audio = document.getElementById("game-audio") as HTMLAudioElement;
+                  if (audio) {
+                    audio.play().catch(() => {});
+                    audio.pause();
+                  }
                   setGameState("playing");
                 }}
                 disabled={!isIntroFinished}
@@ -495,6 +520,12 @@ export default function InvestigationPage() {
                     setIsIntroFinished(true);
                     setDisplayedIntro1(t.introDesc1);
                     setDisplayedIntro2(t.introDesc2);
+                    
+                    // Abort ongoing TTS fetch
+                    if (abortControllerRef.current) {
+                      abortControllerRef.current.abort();
+                    }
+                    
                     // Mute audio
                     const audioEl = document.querySelector('audio');
                     if (audioEl) {
@@ -754,6 +785,9 @@ export default function InvestigationPage() {
           </div>
         </div>
       )}
+
+      {/* Shared audio element for mobile autoplay unlocking */}
+      <audio id="game-audio" className="hidden" playsInline />
 
       {/* Victory Screen */}
       {gameState === "won" && (
