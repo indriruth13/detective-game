@@ -345,14 +345,13 @@ Please verify that your server's \`.env.local\` file has a valid \`OPENAI_API_KE
         />
 
         <button
-          onMouseDown={(e) => { e.preventDefault(); startRecording(); }}
-          onMouseUp={(e) => { e.preventDefault(); stopRecording(); }}
-          onMouseLeave={stopRecording}
-          onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
-          onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
-          onTouchCancel={(e) => { e.preventDefault(); stopRecording(); }}
+          onPointerDown={(e) => { e.preventDefault(); startRecording(); }}
+          onPointerUp={(e) => { e.preventDefault(); stopRecording(); }}
+          onPointerLeave={stopRecording}
+          onPointerCancel={stopRecording}
+          onContextMenu={(e) => e.preventDefault()}
           disabled={loading}
-          style={{ WebkitTouchCallout: 'none' }}
+          style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
           className={`flex items-center justify-center h-10 w-10 sm:w-auto sm:px-4 gap-1.5 rounded-md font-semibold text-zinc-950 transition-colors disabled:opacity-40 disabled:cursor-not-allowed select-none touch-none ${
             isRecording 
               ? "bg-red-600 animate-pulse hover:bg-red-500" 

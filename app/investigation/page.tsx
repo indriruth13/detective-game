@@ -514,10 +514,9 @@ export default function InvestigationPage() {
       {/* Playing state layout */}
       {gameState === "playing" && (
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 md:p-8 max-w-7xl mx-auto w-full">
-          {/* Chat / Interrogation Panel */}
-          <div className="lg:col-span-2 flex flex-col justify-center">
-            {/* Crime Scene Pictures */}
-            <div className="mb-6">
+          {/* 1. Crime Scene Pictures */}
+          <div className="lg:col-span-2 order-1 lg:order-1">
+            <div className="mb-2 lg:mb-6">
               <h3 className="text-xs font-mono tracking-wider uppercase text-amber-500 mb-3 border-b border-zinc-800 pb-1.5 font-bold">
                 {t.evidenceTitle}
               </h3>
@@ -540,7 +539,10 @@ export default function InvestigationPage() {
                 </div>
               </div>
             </div>
+          </div>
 
+          {/* 3. Chat / Interrogation Panel */}
+          <div className="lg:col-span-2 flex flex-col justify-start order-3 lg:order-3">
             <div className="mb-4">
               <h2 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2">
                 <span>{t.roomTitle}</span>
@@ -558,8 +560,8 @@ export default function InvestigationPage() {
             />
           </div>
 
-          {/* Dossier / Case File */}
-          <div className="flex flex-col gap-6">
+          {/* 2. Dossier / Case File */}
+          <div className="flex flex-col gap-6 lg:col-span-1 lg:row-span-2 order-2 lg:order-2">
             {/* SVG Neighborhood Map */}
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5 backdrop-blur-sm">
               <h3 className="text-xs font-mono tracking-wider uppercase text-amber-500 mb-3 border-b border-zinc-800 pb-1.5 font-bold">
