@@ -292,10 +292,8 @@ export default function InvestigationPage() {
             return;
           }
           console.error(error);
-          // Fallback if audio fails
-          // Fallback to start text
+          // Fallback if audio fails: start text
           setIsAudioPlaying(true); 
-          setTimeout(() => setIsIntroFinished(true), 2000);
         } finally {
           if (!isCancelled) setIsLoadingAudio(false);
         }
@@ -320,7 +318,6 @@ export default function InvestigationPage() {
         audio.play().catch((err) => {
           console.error("Intro audio blocked:", err);
           setIsAudioPlaying(true); // Fallback to start text
-          setTimeout(() => setIsIntroFinished(true), 2000);
         });
       }
     }
@@ -346,6 +343,7 @@ export default function InvestigationPage() {
             j++;
             if (j > text2.length) {
               clearInterval(interval2);
+              setIsIntroFinished(true);
             }
           }, 45); // Slower typewriter to better match Onyx
         }
