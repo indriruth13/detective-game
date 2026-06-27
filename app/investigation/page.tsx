@@ -47,7 +47,7 @@ const TRANSLATIONS = {
     evidence1: "Torn thick black tire rubber (karet ban) near the cart",
     evidence2: "Smashed wooden cart with spilled broth",
     exhibitA: "EXHIBIT A: ANTON'S HOUSE",
-    exhibitB: "EXHIBIT B: SMASHED CART",
+    exhibitB: "EXHIBIT B: MANG OLEH'S CART",
     accuseTitle: "Submit Final Report",
     returnBtn: "Return to Case",
     submitBtn: "Submit Verdict",
@@ -141,7 +141,7 @@ const TRANSLATIONS = {
     evidence1: "Potongan karet ban hitam tebal yang sobek di dekat gerobak",
     evidence2: "Gerobak kayu hancur dengan tumpahan kuah",
     exhibitA: "BUKTI A: RUMAH ANTON",
-    exhibitB: "BUKTI B: GEROBAK HANCUR",
+    exhibitB: "BUKTI B: GEROBAK MANG OLEH",
     accuseTitle: "Serahkan Laporan Akhir",
     returnBtn: "Kembali ke Kasus",
     submitBtn: "Kirim Keputusan",
@@ -197,7 +197,7 @@ const TRANSLATIONS = {
 };
 
 export default function InvestigationPage() {
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
   const [gameState, setGameState] = useState<"splash" | "intro" | "playing" | "accusing" | "won" | "lost">("intro");
   const [accused, setAccused] = useState<SuspectId | "">("");
   const [accusedWeapon, setAccusedWeapon] = useState("");
@@ -374,7 +374,7 @@ export default function InvestigationPage() {
   };
 
   const handleRestart = () => {
-    setTimeLeft(300);
+    setTimeLeft(600);
     setAccused("");
     setAccusedWeapon("");
     setAccusedMotive("");
