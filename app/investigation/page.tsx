@@ -3,12 +3,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import Chat from "@/app/investigation/Chat";
 import Link from "next/link";
-import type { SuspectId, Language, StoryId } from "./types";
-import { STORIES } from "../data/stories";
+import type { SuspectId, Language } from "./types";
 
 const TRANSLATIONS = {
   en: {
     exit: "Exit",
+    caseTitle: "Case File #1948: The Melting Projectile",
+    introTitle: "Case Background",
+    introDesc1: "At 8:05 AM this morning, Pak Anton was found unconscious in his garden with severe blunt force trauma to the head. Oddly, there was no murder weapon found at the scene, only a puddle of water near the body.",
+    introDesc2: "You have exactly 5 minutes to interrogate the three main suspects, piece together the timeline, and submit an official report. Find out who did it, why they did it, and how the weapon vanished.",
     startBtn: "Start Investigation",
     enterGame: "Enter Game",
     skipBtn: "Skip",
@@ -18,14 +21,19 @@ const TRANSLATIONS = {
     activeSession: "Active Session",
     roomSubtitle: "Switch between suspects to question their accounts. Watch for slip-ups.",
     mapTitle: "Neighborhood Map",
-    antonHouse: "Crime Scene",
-    ningsihHouse: "Neighbor's House",
-    baksoCart: "Corner Street",
-    jono: "Street Entry",
+    antonHouse: "Anton's House",
+    ningsihHouse: "Ningsih's House",
+    baksoCart: "Bakso Cart",
+    jono: "Jono",
     factsTitle: "Case Facts",
     victimLabel: "Victim",
     causeLabel: "Cause of Death",
+    victim: "Pak Anton. Found unconscious in his garden at 8:05 AM with a bump on his head, but no weapon found.",
+    cause: "Blunt force trauma from a mysterious projectile.",
     timeline: "Timeline of Interest",
+    t1: "7:50 AM: Jono arrives on the street for a delivery.",
+    t2: "7:55 AM: Bu Ningsih starts sweeping her yard, angry about the mango leaves.",
+    t3: "8:00 AM: Mang Oleh is seen across the street. Bu Ningsih hears a loud THUD from Anton's garden.",
     witnessTitle: "Witness Statement",
     witnessLabel: "Witness:",
     dossierFocus: "Dossier Focus:",
@@ -36,8 +44,10 @@ const TRANSLATIONS = {
     estMotive: "2. Establish the Motive",
     selEvidence: "3. Select Key Contradictory Evidence",
     evidenceTitle: "Evidence Found",
-    exhibitA: "EXHIBIT A",
-    exhibitB: "EXHIBIT B",
+    evidence1: "Torn thick black tire rubber (karet ban) near the cart",
+    evidence2: "Smashed wooden cart with spilled broth",
+    exhibitA: "EXHIBIT A: ANTON'S HOUSE",
+    exhibitB: "EXHIBIT B: MANG OLEH'S CART",
     accuseTitle: "Submit Final Report",
     returnBtn: "Return to Case",
     submitBtn: "Submit Verdict",
@@ -54,10 +64,48 @@ const TRANSLATIONS = {
     failed: "Your accusation failed, Detective. The suspect’s defense lawyers easily tore your theory to shreds, and the judge dismissed the charges.",
     atLarge: "The real killer remains at large, and the precinct has taken you off the case. Review the evidence log carefully and pay attention to the timeline and witness statements.",
     tip: "(Tip: One of the suspects made a crucial claim that contradicts a witness statement about the cart.)",
-    retry: "Retry Case"
+    retry: "Retry Case",
+    
+    suspects: {
+      ningsih: "Bu Ningsih",
+      jono: "Jono Ojol",
+      oleh: "Mang Oleh"
+    },
+    motives: {
+      mango_tree: "Mango Tree Dispute: Angry about the leaves in her yard.",
+      bad_rating: "1-Star Rating: Revenge for getting his driver account suspended.",
+      destroyed_cart: "Destroyed Livelihood: Anton crashed into his cart, burned him, and humiliated him."
+    },
+    evidences: {
+      sweeping: "The Sweeping Alibi: Claimed she was just sweeping when the thud happened.",
+      frozen_bakso: "The Missing Inventory: Mang Oleh's premium oversized meatballs are strangely missing from his freezer, and there is a water stain near the body.",
+      delivery: "The Delivery Alibi: Claimed he was just delivering a package down the street."
+    },
+    
+    witness_statements: {
+      ningsih: {
+        witness: "Pak RT (Neighborhood Head)",
+        text: `"Bu Ningsih was sweeping her yard angrily this morning. She's always complaining about Pak Anton's mango tree. I saw her throwing some of the leaves back over the fence."`,
+        details: "She has a motive, but she claims she only heard a thud."
+      },
+      jono: {
+        witness: "Satpam (Security Guard)",
+        text: `"That Ojol driver, Jono, was hovering near the intersection around 8:00 AM. Also, yesterday afternoon, I saw Pak Anton back his SUV right into Mang Oleh's bakso cart. It was a huge mess, but Anton just laughed."`,
+        details: "Provides an alibi for Jono and a major motive for Oleh."
+      },
+      oleh: {
+        witness: "Bu Ningsih (Neighbor)",
+        text: `"Just before I heard the thud from Pak Anton's garden, I saw Mang Oleh across the street. He was pulling something really hard on his cart, like stretching a giant rubber band."`,
+        details: "He claims his cart's rubber snapped from old age."
+      }
+    }
   },
   id: {
     exit: "Keluar",
+    caseTitle: "File Kasus #1948: Proyektil Misterius",
+    introTitle: "Latar Belakang Kasus",
+    introDesc1: "Pagi ini pukul 8:05, Pak Anton ditemukan tak sadarkan diri di tamannya dengan luka trauma benda tumpul yang parah di kepala. Anehnya, tidak ditemukan senjata tajam atau tumpul di TKP, hanya ada genangan air di dekat tubuhnya.",
+    introDesc2: "Anda memiliki waktu tepat 5 menit untuk menginterogasi tiga tersangka utama, menyusun garis waktu, dan mengirimkan laporan resmi. Cari tahu siapa pelakunya, apa motifnya, dan bagaimana senjatanya menghilang.",
     startBtn: "Mulai Penyelidikan",
     enterGame: "Masuk ke Permainan",
     skipBtn: "Lewati",
@@ -67,14 +115,19 @@ const TRANSLATIONS = {
     activeSession: "Sesi Aktif",
     roomSubtitle: "Ganti antar tersangka untuk menanyai mereka. Perhatikan kejanggalannya.",
     mapTitle: "Peta Lingkungan",
-    antonHouse: "TKP",
-    ningsihHouse: "Rumah Tetangga",
-    baksoCart: "Ujung Jalan",
-    jono: "Jalan Masuk",
+    antonHouse: "Rumah Anton",
+    ningsihHouse: "Rumah Ningsih",
+    baksoCart: "Gerobak Bakso",
+    jono: "Jono",
     factsTitle: "Fakta Kasus",
     victimLabel: "Korban",
     causeLabel: "Penyebab Kematian",
+    victim: "Pak Anton. Ditemukan pingsan di tamannya pukul 8:05 pagi dengan benjolan di kepala, tapi tidak ada senjata.",
+    cause: "Trauma benda tumpul dari proyektil misterius.",
     timeline: "Garis Waktu Menarik",
+    t1: "7:50 Pagi: Jono tiba di jalan untuk mengantar paket.",
+    t2: "7:55 Pagi: Bu Ningsih mulai menyapu halaman, marah soal daun mangga.",
+    t3: "8:00 Pagi: Mang Oleh terlihat di seberang jalan. Bu Ningsih mendengar bunyi BUGH keras dari taman Anton.",
     witnessTitle: "Pernyataan Saksi",
     witnessLabel: "Saksi:",
     dossierFocus: "Fokus Berkas:",
@@ -85,8 +138,10 @@ const TRANSLATIONS = {
     estMotive: "2. Tetapkan Motif",
     selEvidence: "3. Pilih Bukti Kontradiktif Kunci",
     evidenceTitle: "Bukti Ditemukan",
-    exhibitA: "BUKTI A",
-    exhibitB: "BUKTI B",
+    evidence1: "Potongan karet ban hitam tebal yang sobek di dekat gerobak",
+    evidence2: "Gerobak kayu hancur dengan tumpahan kuah",
+    exhibitA: "BUKTI A: RUMAH ANTON",
+    exhibitB: "BUKTI B: GEROBAK MANG OLEH",
     accuseTitle: "Serahkan Laporan Akhir",
     returnBtn: "Kembali ke Kasus",
     submitBtn: "Kirim Keputusan",
@@ -103,7 +158,41 @@ const TRANSLATIONS = {
     failed: "Tuduhan Anda gagal, Detektif. Pengacara tersangka dengan mudah menghancurkan teori Anda, dan hakim membatalkan tuduhan.",
     atLarge: "Pembunuh aslinya masih berkeliaran, dan kepolisian menarik Anda dari kasus ini. Tinjau bukti lagi dan perhatikan pernyataan saksi.",
     tip: "(Tips: Salah satu tersangka membuat klaim yang bertentangan dengan pernyataan saksi tentang gerobaknya.)",
-    retry: "Coba Lagi"
+    retry: "Coba Lagi",
+    
+    suspects: {
+      ningsih: "Bu Ningsih",
+      jono: "Jono Ojol",
+      oleh: "Mang Oleh"
+    },
+    motives: {
+      mango_tree: "Sengketa Pohon Mangga: Marah karena daun di halamannya.",
+      bad_rating: "Rating Bintang 1: Balas dendam akun drivernya ditangguhkan.",
+      destroyed_cart: "Gerobak Hancur: Anton menabrak gerobaknya, menyiram kuah panas, dan menghinanya."
+    },
+    evidences: {
+      sweeping: "Alibi Menyapu: Mengaku hanya menyapu saat bunyi bugh terjadi.",
+      frozen_bakso: "Stok yang Hilang: Bakso Tenis premium Mang Oleh anehnya hilang dari freezer-nya, dan ada genangan air di dekat tubuh.",
+      delivery: "Alibi Mengantar: Mengaku hanya mengantar paket di ujung jalan."
+    },
+    
+    witness_statements: {
+      ningsih: {
+        witness: "Pak RT",
+        text: `"Bu Ningsih menyapu halamannya dengan marah pagi ini. Dia selalu mengeluh tentang pohon mangga Pak Anton. Saya melihatnya melempar daun-daun kembali ke seberang pagar."`,
+        details: "Dia punya motif, tapi dia mengaku hanya mendengar bunyi 'bugh'."
+      },
+      jono: {
+        witness: "Satpam",
+        text: `"Ojol itu, Jono, mondar-mandir dekat perempatan sekitar jam 8:00 pagi. Oh ya, kemarin sore, saya lihat Pak Anton menabrakkan mobilnya ke gerobak Mang Oleh sampai hancur. Anton malah tertawa."`,
+        details: "Memberikan alibi Jono dan motif besar untuk Oleh."
+      },
+      oleh: {
+        witness: "Bu Ningsih (Tetangga)",
+        text: `"Tepat sebelum saya mendengar bunyi bugh dari taman Pak Anton, saya lihat Mang Oleh di seberang jalan. Dia menarik sesuatu dengan kuat di gerobaknya, seperti merentangkan karet raksasa."`,
+        details: "Dia mengaku karet gerobaknya putus karena sudah tua."
+      }
+    }
   }
 };
 
@@ -122,9 +211,7 @@ export default function InvestigationPage() {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [gameResetKey, setGameResetKey] = useState(0);
-  
-  const [activeStoryId, setActiveStoryId] = useState<StoryId>("1948");
-  const [activeSuspectId, setActiveSuspectId] = useState<SuspectId>("");
+  const [activeSuspectId, setActiveSuspectId] = useState<SuspectId>("ningsih");
   const [language, setLanguage] = useState<Language>("en");
   const [isLangLoaded, setIsLangLoaded] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -135,22 +222,10 @@ export default function InvestigationPage() {
     if (saved === 'id' || saved === 'en') {
       setLanguage(saved);
     }
-    const savedStory = localStorage.getItem('detective_story');
-    if (savedStory && Object.keys(STORIES).includes(savedStory)) {
-      setActiveStoryId(savedStory);
-    }
     setIsLangLoaded(true);
   }, []);
 
-  const story = STORIES[activeStoryId];
   const t = TRANSLATIONS[language];
-
-  // Set initial active suspect once story loads
-  useEffect(() => {
-    if (isLangLoaded && activeSuspectId === "" && story) {
-      setActiveSuspectId(story.suspects[language][0].id);
-    }
-  }, [isLangLoaded, story, activeSuspectId, language]);
 
   // Timer interval hook
   useEffect(() => {
@@ -197,7 +272,7 @@ export default function InvestigationPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              text: story.introDesc1[language] + " " + story.introDesc2[language],
+              text: t.introDesc1 + " " + t.introDesc2,
               language
             }),
             signal: abortControllerRef.current.signal
@@ -230,7 +305,7 @@ export default function InvestigationPage() {
     return () => {
       isCancelled = true;
     };
-  }, [gameState, language, story, audioUrl]);
+  }, [gameState, language, t.introDesc1, t.introDesc2, audioUrl]);
 
   // Play audio when ready
   useEffect(() => {
@@ -250,9 +325,9 @@ export default function InvestigationPage() {
 
   // Start Typewriter when audio starts playing
   useEffect(() => {
-    if (gameState === "intro" && isAudioPlaying && !isIntroFinished && story) {
-      const text1 = story.introDesc1[language];
-      const text2 = story.introDesc2[language];
+    if (gameState === "intro" && isAudioPlaying && !isIntroFinished) {
+      const text1 = t.introDesc1;
+      const text2 = t.introDesc2;
       
       let i = 0;
       let j = 0;
@@ -279,8 +354,9 @@ export default function InvestigationPage() {
         if (interval2) clearInterval(interval2);
       };
     }
-  }, [gameState, isAudioPlaying, isIntroFinished, language, story]);
+  }, [gameState, isAudioPlaying, isIntroFinished, t.introDesc1, t.introDesc2]);
 
+  // Format MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -300,8 +376,7 @@ export default function InvestigationPage() {
           suspectId: accused,
           weapon: accusedWeapon,
           motive: accusedMotive,
-          language,
-          storyId: activeStoryId
+          language
         }),
       });
 
@@ -333,7 +408,7 @@ export default function InvestigationPage() {
     setAccusedMotive("");
     setJudgeFeedback("");
     setGameState("intro");
-    setActiveSuspectId(story.suspects[language][0].id);
+    setActiveSuspectId("ningsih");
     setAudioUrl(null);
     setIsAudioPlaying(false);
     setIsIntroFinished(false);
@@ -342,8 +417,11 @@ export default function InvestigationPage() {
     setGameResetKey((prev) => prev + 1);
   };
 
-  const activeSuspect = story.suspects[language].find(s => s.id === activeSuspectId) || story.suspects[language][0];
-  const activeStatement = story.witnessStatements[language][activeSuspectId as keyof typeof story.witnessStatements.en] || { text: "", details: "" };
+  const handleLanguageToggle = (newLang: Language) => {
+    setLanguage(newLang);
+    // Reset the chat whenever language changes
+    setGameResetKey((prev) => prev + 1);
+  };
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans select-none">
@@ -362,7 +440,7 @@ export default function InvestigationPage() {
           </Link>
           <div className="h-4 w-px bg-zinc-800" />
           <h1 className="text-sm font-mono tracking-widest uppercase text-amber-500 font-semibold hidden md:block">
-            {story.title[language]}
+            {t.caseTitle}
           </h1>
         </div>
 
@@ -404,7 +482,7 @@ export default function InvestigationPage() {
             
             <div className="space-y-2">
               <h2 className="text-2xl font-bold tracking-widest text-zinc-100 font-mono uppercase">
-                {story.introTitle[language]}
+                {t.introTitle}
               </h2>
             </div>
 
@@ -438,13 +516,15 @@ export default function InvestigationPage() {
                 <button 
                   onClick={() => {
                     setIsIntroFinished(true);
-                    setDisplayedIntro1(story.introDesc1[language]);
-                    setDisplayedIntro2(story.introDesc2[language]);
+                    setDisplayedIntro1(t.introDesc1);
+                    setDisplayedIntro2(t.introDesc2);
                     
+                    // Abort ongoing TTS fetch
                     if (abortControllerRef.current) {
                       abortControllerRef.current.abort();
                     }
                     
+                    // Mute audio
                     const audioEl = document.querySelector('audio');
                     if (audioEl) {
                       audioEl.pause();
@@ -470,21 +550,30 @@ export default function InvestigationPage() {
                 {t.evidenceTitle}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {story.exhibits[language].map((exhibit) => (
-                  <div key={exhibit.id} className="relative group cursor-pointer" onClick={() => setFullscreenImage(exhibit.imageSrc)}>
-                    <div className="absolute top-2 left-2 bg-zinc-950/80 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-amber-500 border border-amber-600/30 z-10">
-                      {exhibit.title.toUpperCase()}
-                    </div>
-                    <img 
-                      src={exhibit.imageSrc} 
-                      alt={exhibit.title}
-                      className="w-full h-32 object-cover rounded border border-zinc-700 opacity-80 group-hover:opacity-100 transition-opacity"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
-                      <span className="text-white text-xs font-mono border border-white/50 px-2 py-1 rounded backdrop-blur-sm">Click to Expand</span>
-                    </div>
+                <div className="flex flex-col rounded-md border border-zinc-800 overflow-hidden shadow-lg bg-zinc-950 group cursor-pointer" onClick={() => setFullscreenImage("/images/crime_scene_house.jpg")}>
+                  <div className="relative aspect-video overflow-hidden">
+                    <img src="/images/crime_scene_house.jpg" alt="Crime Scene House" className="object-cover w-full h-full grayscale-[20%] group-hover:grayscale-0 transition-all group-hover:scale-105 duration-500" />
                   </div>
-                ))}
+                  <div className="bg-zinc-900 w-full px-3 py-2 text-[10px] font-mono text-zinc-300 uppercase flex items-center justify-between border-t border-zinc-800 z-10">
+                    <span>{t.exhibitA}</span>
+                    <span className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg>
+                      <span className="hidden sm:inline">Expand</span>
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col rounded-md border border-zinc-800 overflow-hidden shadow-lg bg-zinc-950 group cursor-pointer" onClick={() => setFullscreenImage("/images/crime_scene_cart.jpg")}>
+                  <div className="relative aspect-video overflow-hidden">
+                    <img src="/images/crime_scene_cart.jpg" alt="Crime Scene Cart" className="object-cover w-full h-full grayscale-[20%] group-hover:grayscale-0 transition-all group-hover:scale-105 duration-500" />
+                  </div>
+                  <div className="bg-zinc-900 w-full px-3 py-2 text-[10px] font-mono text-zinc-300 uppercase flex items-center justify-between border-t border-zinc-800 z-10">
+                    <span>{t.exhibitB}</span>
+                    <span className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg>
+                      <span className="hidden sm:inline">Expand</span>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -505,7 +594,6 @@ export default function InvestigationPage() {
               activeSuspectId={activeSuspectId} 
               setActiveSuspectId={setActiveSuspectId} 
               key={gameResetKey} 
-              storyId={activeStoryId}
             />
           </div>
 
@@ -517,8 +605,31 @@ export default function InvestigationPage() {
                 {t.mapTitle}
               </h3>
               <div className="w-full aspect-video bg-zinc-950 rounded border border-zinc-800 relative overflow-hidden flex items-center justify-center p-2">
-                {/* Simplified map implementation for dynamic stories would go here */}
-                <span className="text-[10px] text-zinc-600 font-mono">Map Unavailable</span>
+                <svg viewBox="0 0 400 200" className="w-full h-full">
+                  {/* Street */}
+                  <rect x="0" y="80" width="400" height="40" fill="#27272a" />
+                  <line x1="0" y1="100" x2="400" y2="100" stroke="#52525b" strokeWidth="2" strokeDasharray="10,10" />
+                  
+                  {/* Pak Anton's House (Crime Scene) */}
+                  <rect x="50" y="20" width="100" height="60" fill="#3f3f46" stroke="#fbbf24" strokeWidth="2" />
+                  <text x="100" y="55" fill="#a1a1aa" fontSize="12" textAnchor="middle" fontFamily="monospace">{t.antonHouse}</text>
+                  <circle cx="120" cy="50" r="4" fill="#ef4444" className="animate-pulse" />
+                  
+                  {/* Mango Tree */}
+                  <circle cx="160" cy="40" r="15" fill="#15803d" />
+                  
+                  {/* Bu Ningsih's House */}
+                  <rect x="180" y="20" width="100" height="60" fill="#3f3f46" />
+                  <text x="230" y="55" fill="#a1a1aa" fontSize="12" textAnchor="middle" fontFamily="monospace">{t.ningsihHouse}</text>
+
+                  {/* Mang Oleh's Cart location */}
+                  <circle cx="90" cy="140" r="8" fill="#3b82f6" />
+                  <text x="90" y="160" fill="#a1a1aa" fontSize="10" textAnchor="middle" fontFamily="monospace">{t.baksoCart}</text>
+
+                  {/* Jono's Delivery location */}
+                  <circle cx="320" cy="140" r="6" fill="#22c55e" />
+                  <text x="320" y="160" fill="#a1a1aa" fontSize="10" textAnchor="middle" fontFamily="monospace">{t.jono}</text>
+                </svg>
               </div>
             </div>
 
@@ -528,9 +639,20 @@ export default function InvestigationPage() {
                 {t.factsTitle}
               </h3>
               <div className="space-y-3.5 text-xs text-zinc-300">
-                {story.facts[language].map((fact, i) => (
-                  <p key={i}>• {fact}</p>
-                ))}
+                <p>
+                  <strong>{t.victimLabel}</strong>: {t.victim}
+                </p>
+                <p>
+                  <strong>{t.causeLabel}</strong>: {t.cause}
+                </p>
+                <p>
+                  <strong>{t.timeline}</strong>:
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-zinc-400">
+                  <li>{t.t1}</li>
+                  <li>{t.t2}</li>
+                  <li>{t.t3}</li>
+                </ul>
               </div>
             </div>
 
@@ -541,12 +663,12 @@ export default function InvestigationPage() {
                   {t.witnessTitle}
                 </h3>
                 <div className="space-y-3 text-xs leading-relaxed text-zinc-300 font-mono">
-                  <span className="text-[10px] text-amber-500/80 uppercase block">{t.witnessLabel} {activeSuspect.name}</span>
+                  <span className="text-[10px] text-amber-500/80 uppercase block">{t.witnessLabel} {t.witness_statements[activeSuspectId].witness}</span>
                   <p className="italic text-zinc-200">
-                    {activeStatement.text}
+                    {t.witness_statements[activeSuspectId].text}
                   </p>
                   <p className="text-zinc-400">
-                    {activeStatement.details}
+                    {t.witness_statements[activeSuspectId].details}
                   </p>
                 </div>
               </div>
@@ -584,44 +706,52 @@ export default function InvestigationPage() {
                 {t.idCulprit}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {story.suspects[language].map((suspect) => (
-                  <label key={suspect.id} className={`flex flex-col items-center p-3 rounded-lg border cursor-pointer transition-all ${accused === suspect.id ? 'bg-red-950/30 border-red-500' : 'bg-zinc-900 border-zinc-700 hover:border-zinc-500'}`}>
-                    <input type="radio" name="culprit" value={suspect.id} checked={accused === suspect.id} onChange={(e) => setAccused(e.target.value as SuspectId)} className="sr-only" />
-                    <img src={suspect.imageSrc} alt={suspect.name} className="w-16 h-16 rounded-full border-2 border-zinc-800 mb-2 object-cover" />
-                    <span className="text-xs font-bold text-zinc-300">{suspect.name}</span>
-                  </label>
+                {[
+                  { id: "ningsih", name: t.suspects.ningsih },
+                  { id: "jono", name: t.suspects.jono },
+                  { id: "oleh", name: t.suspects.oleh }
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setAccused(s.id as SuspectId)}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      accused === s.id
+                        ? "bg-amber-950/40 border-amber-500 text-amber-500 shadow-lg"
+                        : "bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700"
+                    }`}
+                  >
+                    {s.name}
+                  </button>
                 ))}
               </div>
             </div>
 
-            {/* Weapon Options */}
+            {/* Weapon Free Text */}
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-500 mb-2">
                 {language === "en" ? "2. Identify the Weapon" : "2. Identifikasi Senjata"}
               </label>
-              <div className="space-y-2">
-                {Object.entries(story.evidences[language]).map(([key, label]) => (
-                  <label key={key} className={`flex items-start p-3 rounded border cursor-pointer transition-all ${accusedWeapon === key ? 'bg-red-950/20 border-red-500/50' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-600'}`}>
-                    <input type="radio" name="weapon" value={key} checked={accusedWeapon === key} onChange={(e) => setAccusedWeapon(e.target.value)} className="mt-1 mr-3 text-red-500 focus:ring-red-500 bg-zinc-800 border-zinc-700" />
-                    <span className="text-sm text-zinc-300">{label}</span>
-                  </label>
-                ))}
-              </div>
+              <textarea
+                value={accusedWeapon}
+                onChange={(e) => setAccusedWeapon(e.target.value)}
+                placeholder={language === "en" ? "What weapon was used?" : "Senjata apa yang digunakan?"}
+                className="w-full h-20 rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:border-amber-500/50 focus:outline-none transition-colors custom-scrollbar resize-none"
+                disabled={isSubmitting}
+              />
             </div>
 
-            {/* Motive Options */}
+            {/* Motive Free Text */}
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-500 mb-2">
                 {t.estMotive}
               </label>
-              <div className="space-y-2">
-                {Object.entries(story.motives[language]).map(([key, label]) => (
-                  <label key={key} className={`flex items-start p-3 rounded border cursor-pointer transition-all ${accusedMotive === key ? 'bg-red-950/20 border-red-500/50' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-600'}`}>
-                    <input type="radio" name="motive" value={key} checked={accusedMotive === key} onChange={(e) => setAccusedMotive(e.target.value)} className="mt-1 mr-3 text-red-500 focus:ring-red-500 bg-zinc-800 border-zinc-700" />
-                    <span className="text-sm text-zinc-300">{label}</span>
-                  </label>
-                ))}
-              </div>
+              <textarea
+                value={accusedMotive}
+                onChange={(e) => setAccusedMotive(e.target.value)}
+                placeholder={language === "en" ? "Why did they do it?" : "Mengapa mereka melakukannya?"}
+                className="w-full h-20 rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:border-amber-500/50 focus:outline-none transition-colors custom-scrollbar resize-none"
+                disabled={isSubmitting}
+              />
             </div>
 
             {/* Action buttons */}
@@ -710,9 +840,6 @@ export default function InvestigationPage() {
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-sm font-bold tracking-widest text-zinc-400 font-mono uppercase">
-                {story.title[language]}
-              </h1>
               <h2 className="text-3xl font-extrabold tracking-widest text-red-400 font-mono uppercase">
                 {t.caseCold}
               </h2>
