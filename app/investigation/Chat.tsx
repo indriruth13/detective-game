@@ -2,70 +2,19 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import ChatMessage from "./ChatMessage";
-import type { Message, Suspect, SuspectId, Language } from "./types";
-
-const SUSPECTS_EN: (Suspect & { imageSrc: string })[] = [
-  {
-    id: "ningsih",
-    name: "Bu Ningsih",
-    role: "The Neighbor",
-    description: "Gossipy neighbor who hated Pak Anton's mango tree.",
-    initialMessage: "Oh my goodness, Officer, I was so shocked. I was just sweeping my yard when suddenly Pak Anton was already lying there. His mangoes do fall into my yard often, but I wouldn't ever hurt him!",
-    imageSrc: "/images/ningsih.jpg"
-  },
-  {
-    id: "jono",
-    name: "Jono Ojol",
-    role: "Delivery Driver",
-    description: "Online driver. Suspended because of Anton's 1-star review.",
-    initialMessage: "Geez Officer, yeah I'm annoyed at him for that one star. My account got suspended because of it. But I swear, I was only delivering a package down the street at the time.",
-    imageSrc: "/images/jono.jpg"
-  },
-  {
-    id: "oleh",
-    name: "Mang Oleh",
-    role: "Bakso Seller",
-    description: "His cart was destroyed by Anton's reckless driving.",
-    initialMessage: "Excuse me, Officer. I'm just a roaming bakso seller. I haven't seen Pak Anton in days, and I definitely didn't go near his house this morning.",
-    imageSrc: "/images/oleh.jpg"
-  }
-];
-
-const SUSPECTS_ID: (Suspect & { imageSrc: string })[] = [
-  {
-    id: "ningsih",
-    name: "Bu Ningsih",
-    role: "The Neighbor",
-    description: "Gossipy neighbor who hated Pak Anton's mango tree.",
-    initialMessage: "Aduh, Pak Polisi, saya kaget banget. Saya lagi nyapu halaman, eh tiba-tiba Pak Anton udah terkapar. Mangga-mangganya sih sering jatuh ke pekarangan saya, tapi saya nggak mungkin jahatin dia!",
-    imageSrc: "/images/ningsih.jpg"
-  },
-  {
-    id: "jono",
-    name: "Jono Ojol",
-    role: "Delivery Driver",
-    description: "Online driver. Suspended because of Anton's 1-star review.",
-    initialMessage: "Buset Bang Polisi, emang bener saya gedeg sama dia gara-gara bintang satu. Akun saya sampai anyep. Tapi sumpah, saya cuma nganter paket ke ujung jalan doang pas kejadian.",
-    imageSrc: "/images/jono.jpg"
-  },
-  {
-    id: "oleh",
-    name: "Mang Oleh",
-    role: "Bakso Seller",
-    description: "His cart was destroyed by Anton's reckless driving.",
-    initialMessage: "Punten, Pak Polisi. Saya mah cuma tukang bakso keliling. Saya udah beberapa hari nggak lihat Pak Anton, dan tadi pagi juga saya nggak lewat depan rumahnya.",
-    imageSrc: "/images/oleh.jpg"
-  }
-];
+import type { Message, Suspect, SuspectId, Language, StoryId } from "./types";
+import { STORIES } from "../data/stories";
 
 interface ChatProps {
   activeSuspectId: SuspectId;
   setActiveSuspectId: (id: SuspectId) => void;
   language: Language;
+  storyId: StoryId;
 }
 
-export default function Chat({ activeSuspectId, setActiveSuspectId, language }: ChatProps) {
-  const SUSPECTS = language === "en" ? SUSPECTS_EN : SUSPECTS_ID;
+export default function Chat({ activeSuspectId, setActiveSuspectId, language, storyId }: ChatProps) {
+  const story = STORIES[storyId] || STORIES["1948"];
+  const SUSPECTS = story.suspects[language];
   const t = {
     interrogating: language === "en" ? "Interrogating" : "Interogasi",
     ask: language === "en" ? "Ask" : "Tanya",
@@ -75,10 +24,12 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language }: 
     holdToSpeak: language === "en" ? "Hold" : "Tahan"
   };
 
-  const [messages, setMessages] = useState<Record<SuspectId, Message[]>>({
-    ningsih: [],
-    jono: [],
-    oleh: []
+  const [messages, setMessages] = useState<Record<SuspectId, Message[]>>(() => {
+    const initialMsgs: Record<SuspectId, Message[]> = {};
+    SUSPECTS.forEach(s => {
+      initialMsgs[s.id] = [];
+    });
+    return initialMsgs;
   });
 
   const [input, setInput] = useState("");
@@ -266,7 +217,8 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language }: 
         body: JSON.stringify({ 
           messages: updatedActiveMessages,
           suspectId: activeSuspectId,
-          language
+          language,
+          storyId
         }),
       });
 
