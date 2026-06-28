@@ -3,16 +3,22 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { STORIES } from "./data/stories";
 
 export default function Home() {
   const [lang, setLang] = useState<"en" | "id">("en");
+  const [selectedStory, setSelectedStory] = useState<string>("1948");
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const saved = localStorage.getItem('detective_lang');
-    if (saved === 'id' || saved === 'en') {
-      setLang(saved);
+    const savedLang = localStorage.getItem('detective_lang');
+    if (savedLang === 'id' || savedLang === 'en') {
+      setLang(savedLang);
+    }
+    const savedStory = localStorage.getItem('detective_story');
+    if (savedStory && Object.keys(STORIES).includes(savedStory)) {
+      setSelectedStory(savedStory);
     }
     setIsMounted(true);
   }, []);
@@ -20,6 +26,11 @@ export default function Home() {
   const handleLangChange = (newLang: "en" | "id") => {
     setLang(newLang);
     localStorage.setItem('detective_lang', newLang);
+  };
+
+  const handleStoryChange = (newStory: string) => {
+    setSelectedStory(newStory);
+    localStorage.setItem('detective_story', newStory);
   };
 
   if (!isMounted) return <main className="min-h-screen bg-zinc-950"></main>;
@@ -90,6 +101,38 @@ export default function Home() {
             ? "The suspect is waiting in the interrogation room. Ask carefully, listen closely, and make them spill the truth."
             : "Tersangka sedang menunggu di ruang interogasi. Tanyai dengan hati-hati, dengarkan baik-baik, dan buat mereka membongkar kebenaran."}
         </p>
+
+        {/* Story Selection */}
+        <div className="w-full max-w-md space-y-3 mt-4">
+          <div className="text-sm font-mono tracking-widest text-zinc-400 uppercase mb-2">
+            {lang === "en" ? "Select Case File" : "Pilih File Kasus"}
+          </div>
+          {Object.values(STORIES).map((story) => (
+            <button
+              key={story.id}
+              onClick={() => handleStoryChange(story.id)}
+              className={`w-full flex flex-col p-4 rounded-lg border transition-all text-left ${
+                selectedStory === story.id
+                  ? "bg-amber-600/10 border-amber-600 shadow-[0_0_15px_rgba(217,119,6,0.2)]"
+                  : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <h3 className={`font-mono font-bold ${selectedStory === story.id ? "text-amber-500" : "text-zinc-300"}`}>
+                  {story.title[lang]}
+                </h3>
+                {selectedStory === story.id && (
+                  <span className="text-amber-500">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-zinc-500">{story.description[lang]}</p>
+            </button>
+          ))}
+        </div>
 
         <button
           onClick={() => {

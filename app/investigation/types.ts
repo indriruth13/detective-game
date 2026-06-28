@@ -3,7 +3,8 @@ export type Message = {
   content: string;
 };
 
-export type SuspectId = "ningsih" | "jono" | "oleh";
+export type SuspectId = string;
+export type StoryId = string;
 export type Language = "en" | "id";
 
 export interface Suspect {
@@ -12,4 +13,12 @@ export interface Suspect {
   role: string;
   description: string;
   initialMessage: string;
+  imageSrc: string;
+}
+
+export interface Exhibit {
+  id: string;
+  title: string;
+  description: string;
+  imageSrc: string;
 }
