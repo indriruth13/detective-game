@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Chat from "@/app/investigation/Chat";
+import StoryMap from "./StoryMap";
 import Link from "next/link";
 import type { SuspectId, Language, StoryId } from "./types";
 import { STORIES } from "../data/stories";
@@ -136,8 +137,14 @@ export default function InvestigationPage() {
       setLanguage(saved);
     }
     const savedStory = localStorage.getItem('detective_story');
-    if (savedStory && Object.keys(STORIES).includes(savedStory)) {
-      setActiveStoryId(savedStory);
+    let urlStory = null;
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      urlStory = searchParams.get("case");
+    }
+    const finalStory = urlStory || savedStory;
+    if (finalStory && Object.keys(STORIES).includes(finalStory)) {
+      setActiveStoryId(finalStory as StoryId);
     }
     setIsLangLoaded(true);
   }, []);
@@ -145,9 +152,13 @@ export default function InvestigationPage() {
   const story = STORIES[activeStoryId];
   const t = TRANSLATIONS[language];
 
-  // Set initial active suspect once story loads
+  // Set initial active suspect once story loads or changes
   useEffect(() => {
-    if (isLangLoaded && activeSuspectId === "" && story) {
+    if (!isLangLoaded || !story) return;
+    
+    // Check if the current activeSuspectId is valid for the current story
+    const isValid = story.suspects[language].some(s => s.id === activeSuspectId);
+    if (!isValid) {
       setActiveSuspectId(story.suspects[language][0].id);
     }
   }, [isLangLoaded, story, activeSuspectId, language]);
@@ -168,69 +179,50 @@ export default function InvestigationPage() {
     return () => clearInterval(timer);
   }, [timeLeft, gameState]);
 
-  // Reset Intro when language changes
+  // Stop audio when entering accuse mode
+  useEffect(() => {
+    if (gameState === "accusing") {
+      const audio = document.getElementById("game-audio") as HTMLAudioElement;
+      if (audio) {
+        audio.pause();
+        audio.src = "";
+      }
+    }
+  }, [gameState]);
+
+
+  // Reset Intro when language or story changes
   useEffect(() => {
     if (gameState === "intro") {
+      const audio = document.getElementById("game-audio") as HTMLAudioElement;
+      if (audio) {
+        audio.pause();
+        audio.src = "";
+      }
       setAudioUrl(null);
       setIsAudioPlaying(false);
       setIsIntroFinished(false);
       setDisplayedIntro1("");
       setDisplayedIntro2("");
     }
-  }, [language, gameState]);
+  }, [language, activeStoryId, gameState]);
 
   // Intro Typewriter & Voiceover Effect
   useEffect(() => {
     let isCancelled = false;
     
-    if (gameState === "intro" && !audioUrl) {
-      const fetchAudio = async () => {
-        setIsLoadingAudio(true);
-        
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
-        abortControllerRef.current = new AbortController();
-
-        try {
-          const res = await fetch("/api/tts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text: story.introDesc1[language] + " " + story.introDesc2[language],
-              language
-            }),
-            signal: abortControllerRef.current.signal
-          });
-          
-          if (!res.ok) throw new Error("TTS failed");
-          
-          const blob = await res.blob();
-          if (isCancelled) return;
-          
-          const url = URL.createObjectURL(blob);
-          setAudioUrl(url);
-        } catch (error: any) {
-          if (isCancelled) return;
-          if (error.name === 'AbortError') {
-            console.log("Intro TTS fetch aborted");
-            return;
-          }
-          console.error(error);
-          // Fallback if audio fails: start text
-          setIsAudioPlaying(true); 
-        } finally {
-          if (!isCancelled) setIsLoadingAudio(false);
-        }
-      };
-      
-      fetchAudio();
+    if (gameState === "intro" && !audioUrl && isLangLoaded) {
+      setIsLoadingAudio(true);
+      const text = story.introDesc1[language] + " " + story.introDesc2[language];
+      const url = `/api/tts?text=${encodeURIComponent(text)}&voice=onyx`; // Default voice for narrator
+      setAudioUrl(url);
+      setIsLoadingAudio(false);
     }
     
     return () => {
       isCancelled = true;
     };
-  }, [gameState, language, story, audioUrl]);
+  }, [gameState, language, story, audioUrl, isLangLoaded]);
 
   // Play audio when ready
   useEffect(() => {
@@ -288,7 +280,7 @@ export default function InvestigationPage() {
   };
 
   const handleAccuseSubmit = async () => {
-    if (!accused || !accusedWeapon.trim() || !accusedMotive.trim()) return;
+    if (!accused || (activeStoryId !== "2024" && !accusedWeapon.trim()) || !accusedMotive.trim()) return;
 
     setIsSubmitting(true);
     
@@ -298,7 +290,7 @@ export default function InvestigationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           suspectId: accused,
-          weapon: accusedWeapon,
+          weapon: activeStoryId === "2024" ? "Datura/Poisoned Coffee" : accusedWeapon,
           motive: accusedMotive,
           language,
           storyId: activeStoryId
@@ -424,8 +416,12 @@ export default function InvestigationPage() {
                 onClick={() => {
                   const audio = document.getElementById("game-audio") as HTMLAudioElement;
                   if (audio) {
-                    audio.play().catch(() => {});
-                    audio.pause();
+                    const playPromise = audio.play();
+                    if (playPromise !== undefined) {
+                      playPromise.then(() => {
+                        audio.pause();
+                      }).catch(() => {});
+                    }
                   }
                   setGameState("playing");
                 }}
@@ -461,36 +457,35 @@ export default function InvestigationPage() {
       )}
 
       {/* Playing state layout */}
-      {gameState === "playing" && (
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 md:p-8 max-w-7xl mx-auto w-full">
-          {/* 1. Crime Scene Pictures */}
-          <div className="lg:col-span-2 order-1 lg:order-1">
-            <div className="mb-2 lg:mb-6">
+      {(gameState === "playing" || gameState === "accusing" || gameState === "won" || gameState === "lost") && (
+        <div className={`flex-1 grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-6 p-6 md:p-8 max-w-7xl mx-auto w-full ${gameState === "playing" ? "grid" : "hidden"}`}>
+          {/* LEFT COLUMN: Evidence & Chat */}
+          <div className="lg:col-span-2 flex flex-col gap-4 lg:gap-4 order-1 lg:order-1">
+            {/* 1. Crime Scene Pictures */}
+            <div>
               <h3 className="text-xs font-mono tracking-wider uppercase text-amber-500 mb-3 border-b border-zinc-800 pb-1.5 font-bold">
                 {t.evidenceTitle}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {story.exhibits[language].map((exhibit) => (
-                  <div key={exhibit.id} className="relative group cursor-pointer" onClick={() => setFullscreenImage(exhibit.imageSrc)}>
-                    <div className="absolute top-2 left-2 bg-zinc-950/80 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-amber-500 border border-amber-600/30 z-10">
-                      {exhibit.title.toUpperCase()}
+                  <div key={exhibit.id} className="flex flex-col rounded-md border border-zinc-800 overflow-hidden shadow-lg bg-zinc-950 group cursor-pointer" onClick={() => setFullscreenImage(exhibit.imageSrc)}>
+                    <div className="relative aspect-video overflow-hidden">
+                      <img src={exhibit.imageSrc} alt={exhibit.title} className="object-cover w-full h-full grayscale-[20%] group-hover:grayscale-0 transition-all group-hover:scale-105 duration-500" />
                     </div>
-                    <img 
-                      src={exhibit.imageSrc} 
-                      alt={exhibit.title}
-                      className="w-full h-32 object-cover rounded border border-zinc-700 opacity-80 group-hover:opacity-100 transition-opacity"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
-                      <span className="text-white text-xs font-mono border border-white/50 px-2 py-1 rounded backdrop-blur-sm">Click to Expand</span>
+                    <div className="bg-zinc-900 w-full px-3 py-2 text-[10px] font-mono text-zinc-300 uppercase flex items-center justify-between border-t border-zinc-800 z-10">
+                      <span>{exhibit.title}</span>
+                      <span className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg>
+                        <span className="hidden sm:inline">Expand</span>
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* 3. Chat / Interrogation Panel */}
-          <div className="lg:col-span-2 flex flex-col justify-start order-3 lg:order-3">
+            {/* 3. Chat / Interrogation Panel */}
+            <div className="flex flex-col justify-start">
             <div className="mb-4">
               <h2 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2">
                 <span>{t.roomTitle}</span>
@@ -507,9 +502,10 @@ export default function InvestigationPage() {
               key={gameResetKey} 
               storyId={activeStoryId}
             />
+            </div>
           </div>
 
-          {/* 2. Dossier / Case File */}
+          {/* RIGHT COLUMN: 2. Dossier / Case File */}
           <div className="flex flex-col gap-6 lg:col-span-1 lg:row-span-2 order-2 lg:order-2">
             {/* SVG Neighborhood Map */}
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5 backdrop-blur-sm">
@@ -517,8 +513,7 @@ export default function InvestigationPage() {
                 {t.mapTitle}
               </h3>
               <div className="w-full aspect-video bg-zinc-950 rounded border border-zinc-800 relative overflow-hidden flex items-center justify-center p-2">
-                {/* Simplified map implementation for dynamic stories would go here */}
-                <span className="text-[10px] text-zinc-600 font-mono">Map Unavailable</span>
+                <StoryMap storyId={activeStoryId} language={language} />
               </div>
             </div>
 
@@ -528,9 +523,20 @@ export default function InvestigationPage() {
                 {t.factsTitle}
               </h3>
               <div className="space-y-3.5 text-xs text-zinc-300">
-                {story.facts[language].map((fact, i) => (
-                  <p key={i}>• {fact}</p>
-                ))}
+                <p>
+                  <strong>{t.victimLabel}</strong>: {story.caseFacts[language].victim}
+                </p>
+                <p>
+                  <strong>{t.causeLabel}</strong>: {story.caseFacts[language].cause}
+                </p>
+                <p>
+                  <strong>{t.timeline}</strong>:
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-zinc-400">
+                  {story.caseFacts[language].timeline.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
               </div>
             </div>
 
@@ -541,7 +547,7 @@ export default function InvestigationPage() {
                   {t.witnessTitle}
                 </h3>
                 <div className="space-y-3 text-xs leading-relaxed text-zinc-300 font-mono">
-                  <span className="text-[10px] text-amber-500/80 uppercase block">{t.witnessLabel} {activeSuspect.name}</span>
+                  <span className="text-[10px] text-amber-500/80 uppercase block">{t.witnessLabel} {activeStatement.witness}</span>
                   <p className="italic text-zinc-200">
                     {activeStatement.text}
                   </p>
@@ -584,44 +590,50 @@ export default function InvestigationPage() {
                 {t.idCulprit}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {story.suspects[language].map((suspect) => (
-                  <label key={suspect.id} className={`flex flex-col items-center p-3 rounded-lg border cursor-pointer transition-all ${accused === suspect.id ? 'bg-red-950/30 border-red-500' : 'bg-zinc-900 border-zinc-700 hover:border-zinc-500'}`}>
-                    <input type="radio" name="culprit" value={suspect.id} checked={accused === suspect.id} onChange={(e) => setAccused(e.target.value as SuspectId)} className="sr-only" />
-                    <img src={suspect.imageSrc} alt={suspect.name} className="w-16 h-16 rounded-full border-2 border-zinc-800 mb-2 object-cover" />
-                    <span className="text-xs font-bold text-zinc-300">{suspect.name}</span>
-                  </label>
+                {story.suspects[language].map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setAccused(s.id as SuspectId)}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      accused === s.id
+                        ? "bg-amber-950/40 border-amber-500 text-amber-500 shadow-lg"
+                        : "bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700"
+                    }`}
+                  >
+                    {s.name}
+                  </button>
                 ))}
               </div>
             </div>
 
-            {/* Weapon Options */}
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-zinc-500 mb-2">
-                {language === "en" ? "2. Identify the Weapon" : "2. Identifikasi Senjata"}
-              </label>
-              <div className="space-y-2">
-                {Object.entries(story.evidences[language]).map(([key, label]) => (
-                  <label key={key} className={`flex items-start p-3 rounded border cursor-pointer transition-all ${accusedWeapon === key ? 'bg-red-950/20 border-red-500/50' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-600'}`}>
-                    <input type="radio" name="weapon" value={key} checked={accusedWeapon === key} onChange={(e) => setAccusedWeapon(e.target.value)} className="mt-1 mr-3 text-red-500 focus:ring-red-500 bg-zinc-800 border-zinc-700" />
-                    <span className="text-sm text-zinc-300">{label}</span>
-                  </label>
-                ))}
+            {/* Weapon Free Text */}
+            {activeStoryId !== "2024" && (
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-zinc-500 mb-2">
+                  {language === "en" ? "2. IDENTIFY THE WEAPON" : "2. IDENTIFIKASI SENJATA"}
+                </label>
+                <textarea
+                  value={accusedWeapon}
+                  onChange={(e) => setAccusedWeapon(e.target.value)}
+                  placeholder={language === "en" ? "What weapon was used?" : "Senjata apa yang digunakan?"}
+                  className="w-full h-20 rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:border-amber-500/50 focus:outline-none transition-colors custom-scrollbar resize-none"
+                  disabled={isSubmitting}
+                />
               </div>
-            </div>
+            )}
 
-            {/* Motive Options */}
+            {/* Motive Free Text */}
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-500 mb-2">
-                {t.estMotive}
+                {language === "en" ? (activeStoryId === "2024" ? "2. ESTABLISH THE MOTIVE" : "3. ESTABLISH THE MOTIVE") : (activeStoryId === "2024" ? "2. TETAPKAN MOTIF" : "3. TETAPKAN MOTIF")}
               </label>
-              <div className="space-y-2">
-                {Object.entries(story.motives[language]).map(([key, label]) => (
-                  <label key={key} className={`flex items-start p-3 rounded border cursor-pointer transition-all ${accusedMotive === key ? 'bg-red-950/20 border-red-500/50' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-600'}`}>
-                    <input type="radio" name="motive" value={key} checked={accusedMotive === key} onChange={(e) => setAccusedMotive(e.target.value)} className="mt-1 mr-3 text-red-500 focus:ring-red-500 bg-zinc-800 border-zinc-700" />
-                    <span className="text-sm text-zinc-300">{label}</span>
-                  </label>
-                ))}
-              </div>
+              <textarea
+                value={accusedMotive}
+                onChange={(e) => setAccusedMotive(e.target.value)}
+                placeholder={language === "en" ? "Why did they do it?" : "Mengapa mereka melakukannya?"}
+                className="w-full h-20 rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:border-amber-500/50 focus:outline-none transition-colors custom-scrollbar resize-none"
+                disabled={isSubmitting}
+              />
             </div>
 
             {/* Action buttons */}
@@ -636,7 +648,7 @@ export default function InvestigationPage() {
               )}
               <button
                 onClick={handleAccuseSubmit}
-                disabled={!accused || !accusedWeapon.trim() || !accusedMotive.trim() || isSubmitting}
+                disabled={!accused || (activeStoryId !== "2024" && !accusedWeapon.trim()) || !accusedMotive.trim() || isSubmitting}
                 className="flex-1 rounded-md bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
@@ -730,7 +742,7 @@ export default function InvestigationPage() {
                 <p className="text-red-300 italic">"{judgeFeedback}"</p>
               </div>
               <p className="text-zinc-500 text-xs italic">
-                {t.tip}
+                {story.tip[language]}
               </p>
             </div>
 

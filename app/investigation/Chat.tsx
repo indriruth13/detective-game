@@ -21,7 +21,7 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language, st
     placeholder: language === "en" ? "Question" : "Tanya",
     thinking: language === "en" ? "Thinking" : "Berpikir",
     thinkingDesc: language === "en" ? "*Thinking... formulating a careful response...*" : "*Berpikir... menyusun jawaban hati-hati...*",
-    holdToSpeak: language === "en" ? "Hold" : "Tahan"
+    tapToSpeak: language === "en" ? "Tap" : "Ketuk"
   };
 
   const [messages, setMessages] = useState<Record<SuspectId, Message[]>>(() => {
@@ -31,6 +31,20 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language, st
     });
     return initialMsgs;
   });
+
+  useEffect(() => {
+    setMessages(prev => {
+      const newMsgs = { ...prev };
+      let changed = false;
+      SUSPECTS.forEach(s => {
+        if (!newMsgs[s.id]) {
+          newMsgs[s.id] = [];
+          changed = true;
+        }
+      });
+      return changed ? newMsgs : prev;
+    });
+  }, [SUSPECTS]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,6 +63,19 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language, st
   }, [activeSuspectId]);
 
   useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      stopAudio();
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.src = "";
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
@@ -60,79 +87,96 @@ export default function Chat({ activeSuspectId, setActiveSuspectId, language, st
       gameAudio.pause();
       gameAudio.src = "";
     }
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
   };
 
   const playTTS = async (text: string, suspectId: SuspectId) => {
     stopAudio();
-    const voice = suspectId === "ningsih" ? "nova" : suspectId === "jono" ? "echo" : "onyx";
+    const suspect = SUSPECTS.find(s => s.id === suspectId);
     
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-    
-    try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, language, voice }),
-        signal: abortControllerRef.current.signal
-      });
-      if (res.ok) {
-        const blob = await res.blob();
+    if (language === "id" && typeof window !== "undefined" && window.speechSynthesis) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "id-ID";
+      
+      const voices = window.speechSynthesis.getVoices();
+      const idVoices = voices.filter(v => v.lang.includes("id") || v.lang.includes("ID"));
+      
+      // Adjust pitch and rate to simulate gender differences reliably
+      if (suspect?.gender === "male") {
+        utterance.pitch = 0.5; // Deeper voice
+        utterance.rate = 0.9;  // Slightly slower
+      } else {
+        utterance.pitch = 1.2; // Higher voice
+        utterance.rate = 1.0;  // Normal speed
+      }
+      
+      if (idVoices.length > 0) {
+        // Try to find known female/male voices if possible, otherwise default to first
+        const maleVoice = idVoices.find(v => v.name.toLowerCase().includes("male") || v.name.toLowerCase().includes("aris"));
+        const femaleVoice = idVoices.find(v => v.name.toLowerCase().includes("female") || v.name.toLowerCase().includes("damayanti") || v.name.toLowerCase().includes("gadis") || v.name.toLowerCase().includes("google"));
         
-        // If the user already switched to another suspect, ignore this audio
-        if (suspectId !== activeSuspectRef.current) return;
-
-        const url = URL.createObjectURL(blob);
-        const gameAudio = document.getElementById("game-audio") as HTMLAudioElement;
-        
-        if (gameAudio) {
-          gameAudio.src = url;
-          gameAudio.play().catch(e => console.error("Auto-play blocked:", e));
+        if (suspect?.gender === "male" && maleVoice) {
+          utterance.voice = maleVoice;
+        } else if (suspect?.gender === "female" && femaleVoice) {
+          utterance.voice = femaleVoice;
         } else {
-          // Fallback for desktop/if element missing
-          const audio = new Audio(url);
-          currentAudioRef.current = audio;
-          audio.play().catch(e => console.error("Auto-play blocked:", e));
+          utterance.voice = idVoices[0];
         }
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        console.log("TTS fetch aborted");
-      } else {
-        console.error("TTS Error:", err);
+      
+      window.speechSynthesis.speak(utterance);
+      return;
+    }
+    
+    // Choose voice based on gender for English
+    let voice = suspect?.gender === "female" ? "nova" : "onyx";
+    
+    const url = `/api/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
+    const gameAudio = document.getElementById("game-audio") as HTMLAudioElement;
+    
+    if (gameAudio) {
+      gameAudio.src = url;
+      const playPromise = gameAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {});
+      }
+    } else {
+      // Fallback for desktop/if element missing
+      const audio = new Audio(url);
+      currentAudioRef.current = audio;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {});
       }
     }
   };
 
   useEffect(() => {
     // Handle initial message typing effect and voice
-    if (messages[activeSuspectId].length === 0) {
+    if (messages[activeSuspectId]?.length === 0) {
       setLoading(true);
       const currentId = activeSuspectId;
       const suspect = SUSPECTS.find(s => s.id === currentId)!;
       const initialText = suspect.initialMessage;
       
-      // Small timeout to simulate typing/loading before saying first line
-      const timer = setTimeout(() => {
-        setMessages(prev => {
-          if (prev[currentId].length > 0) return prev;
-          return {
-            ...prev,
-            [currentId]: [{ role: "assistant", content: initialText }]
-          };
-        });
-        setLoading(false);
-        playTTS(initialText, currentId);
-      }, 1200);
-
-      return () => clearTimeout(timer);
+      // We update state and call TTS immediately to save 1.2s
+      setMessages(prev => {
+        if (prev[currentId].length > 0) return prev;
+        return {
+          ...prev,
+          [currentId]: [{ role: "assistant", content: initialText }]
+        };
+      });
+      setLoading(false);
+      playTTS(initialText, currentId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSuspectId]);
 
   const startRecording = async () => {
+    stopAudio();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -333,7 +377,10 @@ Please verify that your server's \`.env.local\` file has a valid \`OPENAI_API_KE
       <div className="flex gap-2 border-t border-zinc-800 bg-zinc-900/30 p-4 relative">
         <input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            stopAudio();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               sendMessage();
@@ -345,10 +392,11 @@ Please verify that your server's \`.env.local\` file has a valid \`OPENAI_API_KE
         />
 
         <button
-          onPointerDown={(e) => { e.preventDefault(); startRecording(); }}
-          onPointerUp={(e) => { e.preventDefault(); stopRecording(); }}
-          onPointerLeave={stopRecording}
-          onPointerCancel={stopRecording}
+          onClick={(e) => { 
+            e.preventDefault(); 
+            if (isRecording) stopRecording(); 
+            else startRecording(); 
+          }}
           onContextMenu={(e) => e.preventDefault()}
           disabled={loading}
           style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
@@ -357,12 +405,16 @@ Please verify that your server's \`.env.local\` file has a valid \`OPENAI_API_KE
               ? "bg-red-600 animate-pulse hover:bg-red-500" 
               : "bg-zinc-200 hover:bg-white"
           }`}
-          title="Hold to speak"
+          title={t.tapToSpeak}
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            {isRecording ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            )}
           </svg>
-          <span className="hidden sm:inline text-xs">{isRecording ? "..." : t.holdToSpeak}</span>
+          <span className="hidden sm:inline text-xs">{isRecording ? "..." : t.tapToSpeak}</span>
         </button>
 
         <button

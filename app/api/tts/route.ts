@@ -47,3 +47,46 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const text = searchParams.get('text');
+    const voice = searchParams.get('voice');
+
+    if (!text) {
+      return NextResponse.json({ error: "Text is required" }, { status: 400 });
+    }
+
+    const finalApiKey = process.env.OPENAI_API_KEY;
+    if (!finalApiKey || finalApiKey === "your-api-key-here" || finalApiKey.trim() === "") {
+      return NextResponse.json(
+        { error: "No OpenAI API key found in server environment." },
+        { status: 401 }
+      );
+    }
+
+    const openai = new OpenAI({ apiKey: finalApiKey });
+    const selectedVoice = voice || "onyx";
+
+    const response = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: selectedVoice as "onyx" | "alloy" | "echo" | "fable" | "nova" | "shimmer",
+      input: text,
+      response_format: "mp3",
+    });
+
+    return new NextResponse(response.body as any, {
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "Transfer-Encoding": "chunked"
+      },
+    });
+  } catch (error: any) {
+    console.error("OpenAI TTS API GET error:", error);
+    return NextResponse.json(
+      { error: error?.message || "An error occurred while generating audio." },
+      { status: 500 }
+    );
+  }
+}

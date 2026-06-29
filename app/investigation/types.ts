@@ -14,6 +14,7 @@ export interface Suspect {
   description: string;
   initialMessage: string;
   imageSrc: string;
+  gender: "male" | "female";
 }
 
 export interface Exhibit {

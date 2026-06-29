@@ -77,7 +77,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="relative z-10 w-full max-w-2xl px-6 py-12 flex flex-col items-center text-center space-y-8 bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-zinc-800 shadow-2xl">
+      <div className="relative z-10 w-full max-w-2xl min-h-[650px] px-6 py-12 flex flex-col items-center text-center space-y-8 bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-zinc-800 shadow-2xl">
         
         {/* Fingerprint Icon / Badge */}
         <div className="w-20 h-20 rounded-full bg-zinc-950 border border-zinc-700 flex items-center justify-center shadow-inner mb-4">
@@ -138,10 +138,14 @@ export default function Home() {
           onClick={() => {
             const audio = document.getElementById("game-audio") as HTMLAudioElement;
             if (audio) {
-              audio.play().catch(() => {});
-              audio.pause();
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                playPromise.then(() => {
+                  audio.pause();
+                }).catch(() => {});
+              }
             }
-            router.push("/investigation");
+            router.push(`/investigation?case=${selectedStory}`);
           }}
           className="group relative inline-flex items-center justify-center px-10 py-4 mt-6 overflow-hidden font-bold tracking-widest text-zinc-950 uppercase rounded-md bg-amber-600 hover:bg-amber-500 active:bg-amber-700 transition-all shadow-[0_0_20px_rgba(217,119,6,0.4)] hover:shadow-[0_0_30px_rgba(217,119,6,0.6)] animate-pulse hover:animate-none"
         >
